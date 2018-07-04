@@ -310,11 +310,10 @@ class QNetwork:
     def replay(self, memory, batch_size, gamma, targetQN):
         inputs = np.zeros((batch_size, 408))
         targets = np.zeros((batch_size, 1))
-        mini_batch = memory.sample(batch_size)
+        mini_batch = deepcopy(memory.sample(batch_size))
         targetmatome = []
 
         for i, (state_b, reward_b, next_state_b, haitei) in enumerate(mini_batch):
-            print(next_state_b)
             inputs[i:i + 1] = state_b
             target = reward_b
             max = -100
@@ -323,8 +322,6 @@ class QNetwork:
 
             if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
                 # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
-
-
 
                 tehai = mahjong.make_tehai(next_state_b)
 
@@ -383,7 +380,7 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
-num_episodes = 1000# 総試行回数
+num_episodes = 5000# 総試行回数
 max_number_of_steps = 50  # 1試行のstep数
 goal_average_reward = 80  # この報酬を超えると学習終了
 num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試行回数
@@ -394,7 +391,7 @@ gamma = 0.99    # 割引係数
 hidden_size = 512              # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.00001         # Q-networkの学習係数
 memory_size = 100000000            # バッファーメモリの大きさ
-batch_size = 12              # Q-networkを更新するバッチの大記載
+batch_size = 128              # Q-networkを更新するバッチの大記載
 
 # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
 mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
@@ -490,6 +487,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         next_state = mahjong.make_state()  # list型のstateを、1行4列の行列に変換
 
         episode_reward += reward  # 合計報酬を更新]
+
         memory.add((deepcopy(state), reward, deepcopy(next_state), haitei))     # メモリの更新する
         state = mahjong.make_state()  # 状態更新
         backsyanten = syanten

@@ -16,6 +16,8 @@ from copy import deepcopy
 from datetime import datetime
 from time import time
 
+Nmai_mahjong = 5
+
 shanten = Shanten()
 pailist =[]
 tehailist = []
@@ -43,7 +45,7 @@ class Mahjong():
 
     def haipai(self, yama):
         global paisID
-        for i in range(0, 13):
+        for i in range(0, Nmai_mahjong - 1):
             a = yama.popleft()
             tehai.append(a)
             paisID[a][0] = 0
@@ -77,7 +79,7 @@ class Mahjong():
 
     def randomdahai(self, tehai, kawa):
         global paisID
-        a = tehai.pop(random.randint(0, 13))
+        a = tehai.pop(random.randint(0, Nmai_mahjong - 1))
         resultfile.write('ランダム打：' + str(mahjong.henkan(a)) + '\n\n')
         kawa.append(a)
         paisID[a][0] = 0
@@ -327,7 +329,7 @@ class QNetwork:
 
                 copystate = next_state_b
 
-                while b < 14:
+                while b < Nmai_mahjong:
                     pick_hai_b = tehai[b]
                     copystate[0][pick_hai_b + 1] = 0
                     copystate[0][pick_hai_b + 2] = 1
@@ -439,7 +441,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
         resultfile.write('手牌' + str(mahjong.henkan(tehai)) + '\n')
 
-        while i < 14:
+        while i < Nmai_mahjong:
             pick_hai = tehai[i]
 
             paisID[pick_hai][1] = 0
@@ -473,8 +475,9 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             reward = 100
             haitei = 1
             resultfile.write('テンパった！！！\n')
+            resultfile.write(str(mahjong.henkan(tehai)))
             print('テンパった！！！！')
-            print(tehai)
+            print(mahjong.henkan(tehai))
         if t == 17:
             haitei = 1
             if syanten != 0:

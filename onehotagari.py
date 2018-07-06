@@ -62,7 +62,6 @@ class Mahjong():
         paisID[a][0] = 0
         paisID[a][1] = 1
         paisID[a][2] = 0
-        tehai.sort()
 
         return tehai, yama
 
@@ -74,6 +73,19 @@ class Mahjong():
         paisID[a][0] = 0
         paisID[a][1] = 0
         paisID[a][2] = 1
+        tehai.sort()
+
+        return tehai, kawa
+
+    def richi(self, tehai, kawa):
+        global paisID
+        a = tehai.pop(Nmai_mahjong - 1)
+        resultfile.write('ツモ切り：' + str(mahjong.henkan(a)) + '\n\n')
+        kawa.append(a)
+        paisID[a][0] = 0
+        paisID[a][1] = 0
+        paisID[a][2] = 1
+        tehai.sort()
 
         return tehai, kawa
 
@@ -85,6 +97,7 @@ class Mahjong():
         paisID[a][0] = 0
         paisID[a][1] = 0
         paisID[a][2] = 1
+        tehai.sort()
 
         return tehai, kawa
 
@@ -406,6 +419,9 @@ mahjong.pais()
 
 tenpai_count = 0
 heikinjunme = 0
+epsilon = 1.0
+e_decay = 0.9999
+e_min = 0.01
 
 resultfile = open('result/result' + datetime.now().strftime("%m%d %H%M") + '.txt', 'w')
 
@@ -421,16 +437,16 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     i = 0
     reward = 0
     haitei = 0
+    richi = 0
     irerustate = np.zeros((1, 34))
-    epsilon = 1.0
-    e_decay = 0.9999
-    e_min = 0.01
+
     done = False
     yama = mahjong.yamatumi()
     tehai, yama = mahjong.haipai(yama)
     resultfile.write('配牌' + str(mahjong.henkan(tehai)) + '\n')
     tehai, yama = mahjong.tumo(tehai, yama)
     backsyanten = mahjong.syanten(tehai)
+    state = mahjong.make_state()
     episode_reward = 0
 
     targetQN = mainQN   # 行動決定と価値計算のQネットワークをおなじにする
@@ -458,13 +474,24 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             paisID[pick_hai][2] = 0
             i += 1
 
-        if epsilon <= np.random.uniform(0, 1):
-            tehai, kawa = mahjong.dahai(tehai, j, kawa)
+        if richi == 1:
+            tehai, kawa = mahjong.richi(tehai, kawa)
         else:
-            tehai, kawa = mahjong.randomdahai(tehai, kawa)
+            if epsilon <= np.random.uniform(0, 1):
+                tehai, kawa = mahjong.dahai(tehai, j, kawa)
+            else:
+                tehai, kawa = mahjong.randomdahai(tehai, kawa)
+
 
         syanten = mahjong.syanten(tehai)
-        state = mahjong.make_state()
+        if syanten == 0:
+            resultfile.write('立直\n')
+            print('立直')
+            richi = 1
+
+        tehai, yama = mahjong.tumo(tehai, yama)
+        next_state = mahjong.make_state()
+
         resultfile.write(str(syanten) + 'シャンテン' + '\n')
 
         if syanten < backsyanten:
@@ -472,30 +499,31 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         else:
             reward = 0
 
-        if syanten == 0:
+        if mahjong.syanten(tehai) == -1:
             done = True
             reward = 100
             haitei = 1
-            resultfile.write('テンパった！！！\n')
+            resultfile.write('和了った！！！\n')
             resultfile.write(str(mahjong.henkan(tehai)))
-            print('テンパった！！！！')
+            print('和了った！！！！')
             print(mahjong.henkan(tehai))
+            print(str(t + 1) + '順目')
+            tenpai_count += 1
+            heikinjunme += (t + 1)
+
         if t == 17:
             haitei = 1
-            if syanten != 0:
+            if syanten != -1:
                 reward = -100
 
         resultfile.write('報酬：' + str(reward) + '\n')
 
-        tehai, yama = mahjong.tumo(tehai, yama)
-
-        next_state = mahjong.make_state()  # list型のstateを、1行4列の行列に変換
-
         episode_reward += reward  # 合計報酬を更新]
 
         memory.add((deepcopy(state), reward, deepcopy(next_state), haitei))     # メモリの更新する
+
         state = mahjong.make_state()  # 状態更新
-        backsyanten = syanten
+        backsyanten = mahjong.syanten(tehai)
 
         if len(yama) <= 14:
             done = True
@@ -506,16 +534,12 @@ for episode in range(num_episodes):  # 試行数分繰り返す
                 epsilon *= e_decay
 
         total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
-
-        if syanten == 0:
-
-            print(str(t + 1) + '順目')
-            tenpai_count += 1
-            heikinjunme += (t + 1)
+        if done:
             break
 
     print('mean %f' % (total_reward_vec.mean()))
     print('流局')
+    print('和了率' + str((tenpai_count / (episode + 1)) * 100))
     print('e=' + str(epsilon))
 
 print(str(tenpai_count)+'回テンパった')

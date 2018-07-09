@@ -418,6 +418,7 @@ mahjong = Mahjong()
 mahjong.pais()
 
 tenpai_count = 0
+agari_count = 0
 heikinjunme = 0
 epsilon = 1.0
 e_decay = 0.9999
@@ -484,9 +485,10 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
 
         syanten = mahjong.syanten(tehai)
-        if syanten == 0:
+        if syanten == 0 and richi == 0:
             resultfile.write('立直\n')
             print('立直')
+            tenpai_count += 1
             richi = 1
 
         tehai, yama = mahjong.tumo(tehai, yama)
@@ -508,13 +510,11 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             print('和了った！！！！')
             print(mahjong.henkan(tehai))
             print(str(t + 1) + '順目')
-            tenpai_count += 1
+            agari_count += 1
             heikinjunme += (t + 1)
 
         if t == 17:
             haitei = 1
-            if syanten != -1:
-                reward = -100
 
         resultfile.write('報酬：' + str(reward) + '\n')
 
@@ -539,11 +539,13 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
     print('mean %f' % (total_reward_vec.mean()))
     print('流局')
-    print('和了率' + str((tenpai_count / (episode + 1)) * 100))
+    print('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
+    print('和了率' + str((agari_count / (episode + 1)) * 100))
     print('e=' + str(epsilon))
 
 print(str(tenpai_count)+'回テンパった')
 if tenpai_count != 0:
-    print('平均聴牌順目は'+str(heikinjunme / tenpai_count))
+    print('平均聴牌順目は' + str(heikinjunme / tenpai_count))
+    print('平均和了順目は' + str(heikinjunme / agari_count))
 
 resultfile.close()

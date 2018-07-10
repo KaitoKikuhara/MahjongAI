@@ -309,7 +309,7 @@ class Mahjong():
         return tehai
 
 class QNetwork:
-    def __init__(self, learning_rate=0.01, state_size=408, action_size=1, hidden_size=512):
+    def __init__(self,hidden_size, learning_rate, state_size=408, action_size=1):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(256, activation='relu'))
@@ -326,49 +326,46 @@ class QNetwork:
         inputs = np.zeros((batch_size, 408))
         targets = np.zeros((batch_size, 1))
         mini_batch = deepcopy(memory.sample(batch_size))
-        targetmatome = []
 
         for i, (state_b, reward_b, next_state_b, haitei) in enumerate(mini_batch):
             inputs[i:i + 1] = state_b
             target = reward_b
             max = -100
             b = 0
-            j = 0
 
             if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
                 # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
 
-                tehai = mahjong.make_tehai(next_state_b)
-
-                copystate = next_state_b
-
-                while b < Nmai_mahjong:
-                    pick_hai_b = tehai[b]
-                    copystate[0][pick_hai_b + 1] = 0
-                    copystate[0][pick_hai_b + 2] = 1
-
-                    action = actor.get_action(copystate, targetQN)  # 時刻tでの行動を決定する
-
-                    if max < action:
-                        max = action
-                    copystate[0][pick_hai_b + 1] = 1
-                    copystate[0][pick_hai_b + 2] = 0
-                    b += 1
-
                 if haitei == 1:
-                    targetmatome.append(reward_b)
+                    target = reward_b
                 else:
-                    targetmatome.append(reward_b + gamma * max)
+                    tehai = mahjong.make_tehai(next_state_b)
 
-        targets = self.model.predict(inputs)    # Qネットワークの出力
-        for i in range(len(targetmatome)):
-           targets[i] = targetmatome[i]               # 教師信号
-        self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+                    copystate = next_state_b
+
+                    while b < Nmai_mahjong:
+                        pick_hai_b = tehai[b]
+                        copystate[0][pick_hai_b + 1] = 0
+                        copystate[0][pick_hai_b + 2] = 1
+
+                        action = actor.get_action(copystate, targetQN)  # 時刻tでの行動を決定する
+
+                        if max < action:
+                            max = action
+                        copystate[0][pick_hai_b + 1] = 1
+                        copystate[0][pick_hai_b + 2] = 0
+                        b += 1
+
+                    target = reward_b + gamma * max
+
+            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+            targets[i][0] = target
+            self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
-    def __init__(self, max_size=1000):
+    def __init__(self, max_size):
         self.buffer = deque(maxlen=max_size)
 
     def add(self, experience):
@@ -548,4 +545,8 @@ if tenpai_count != 0:
     print('平均聴牌順目は' + str(heikinjunme / tenpai_count))
     print('平均和了順目は' + str(heikinjunme / agari_count))
 
+resultfile.write('聴牌回数' + str(tenpai_count))
+resultfile.write('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
+resultfile.write('和了回数' + str(agari_count))
+resultfile.write('和了率' + str((agari_count / (episode + 1)) * 100))
 resultfile.close()

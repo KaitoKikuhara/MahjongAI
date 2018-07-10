@@ -327,40 +327,41 @@ class QNetwork:
         targets = np.zeros((batch_size, 1))
         mini_batch = deepcopy(memory.sample(batch_size))
 
-        for i, (state_b, reward_b, next_state_b, haitei) in enumerate(mini_batch):
-            inputs[i:i + 1] = state_b
-            target = reward_b
-            max = -100
-            b = 0
+        for i, (state_b, reward_b, next_state_b, haitei, richi_sengen) in enumerate(mini_batch):
+            if richi_sengen != 1:
+                inputs[i:i + 1] = state_b
+                target = reward_b
+                max = -100
+                b = 0
 
-            if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
-                # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
+                if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
+                    # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
 
-                if haitei == 1:
-                    target = reward_b
-                else:
-                    tehai = mahjong.make_tehai(next_state_b)
+                    if haitei == 1:
+                        target = reward_b
+                    else:
+                        tehai = mahjong.make_tehai(next_state_b)
 
-                    copystate = next_state_b
+                        copystate = next_state_b
 
-                    while b < Nmai_mahjong:
-                        pick_hai_b = tehai[b]
-                        copystate[0][pick_hai_b + 1] = 0
-                        copystate[0][pick_hai_b + 2] = 1
+                        while b < Nmai_mahjong:
+                            pick_hai_b = tehai[b]
+                            copystate[0][pick_hai_b + 1] = 0
+                            copystate[0][pick_hai_b + 2] = 1
 
-                        action = actor.get_action(copystate, targetQN)  # 時刻tでの行動を決定する
+                            action = actor.get_action(copystate, targetQN)  # 時刻tでの行動を決定する
 
-                        if max < action:
-                            max = action
-                        copystate[0][pick_hai_b + 1] = 1
-                        copystate[0][pick_hai_b + 2] = 0
-                        b += 1
+                            if max < action:
+                                max = action
+                            copystate[0][pick_hai_b + 1] = 1
+                            copystate[0][pick_hai_b + 2] = 0
+                            b += 1
 
-                    target = reward_b + gamma * max
+                        target = reward_b + gamma * max
 
-            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
-            targets[i][0] = target
-            self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+                targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+                targets[i][0] = target
+                self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
@@ -392,11 +393,10 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
-num_episodes = 5000# 総試行回数
-max_number_of_steps = 50  # 1試行のstep数
-goal_average_reward = 80  # この報酬を超えると学習終了
-num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試行回数
-total_reward_vec = np.zeros(num_episodes)  # 各試行の報酬を格納
+
+num_episodes = 1000 # 学習回数
+test_episodes = 10000 #テスト回数
+total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 
 # ---
@@ -416,9 +416,14 @@ mahjong.pais()
 
 tenpai_count = 0
 agari_count = 0
-heikinjunme = 0
+test_tenpai_count = 0
+test_agari_count = 0
+tenpai_heikin= 0
+test_tenpai_heikin = 0
+agari_heikin= 0
+test_agari_heikin = 0
 epsilon = 1.0
-e_decay = 0.9999
+e_decay = 0.999
 e_min = 0.01
 
 resultfile = open('result/result' + datetime.now().strftime("%m%d %H%M") + '.txt', 'w')
@@ -430,13 +435,13 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     tehai = []
     tehailist = []
     kawa = []
-    print('東' + str(episode+1) + '局')
+    print('\n東' + str(episode+1) + '局')
     resultfile.write('東' + str(episode+1) + '局\n')
     i = 0
     reward = 0
     haitei = 0
     richi = 0
-    irerustate = np.zeros((1, 34))
+    richi_sengen = 0
 
     done = False
     yama = mahjong.yamatumi()
@@ -457,7 +462,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
         resultfile.write('手牌' + str(mahjong.henkan(tehai)) + '\n')
 
-        while i < Nmai_mahjong:
+        while i < len(tehai):
             pick_hai = tehai[i]
 
             paisID[pick_hai][1] = 0
@@ -473,6 +478,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             i += 1
 
         if richi == 1:
+            richi_sengen = 1
             tehai, kawa = mahjong.richi(tehai, kawa)
         else:
             if epsilon <= np.random.uniform(0, 1):
@@ -480,16 +486,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             else:
                 tehai, kawa = mahjong.randomdahai(tehai, kawa)
 
-
         syanten = mahjong.syanten(tehai)
-        if syanten == 0 and richi == 0:
-            resultfile.write('立直\n')
-            print('立直')
-            tenpai_count += 1
-            richi = 1
-
-        tehai, yama = mahjong.tumo(tehai, yama)
-        next_state = mahjong.make_state()
 
         resultfile.write(str(syanten) + 'シャンテン' + '\n')
 
@@ -497,6 +494,17 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             reward = 1
         else:
             reward = 0
+
+        if syanten == 0 and richi == 0:
+            resultfile.write('立直\n')
+            print('立直')
+            tenpai_count += 1
+            tenpai_heikin += (t + 1)
+            richi = 1
+            reward = 50
+
+        tehai, yama = mahjong.tumo(tehai, yama)
+        next_state = mahjong.make_state()
 
         if mahjong.syanten(tehai) == -1:
             done = True
@@ -508,7 +516,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             print(mahjong.henkan(tehai))
             print(str(t + 1) + '順目')
             agari_count += 1
-            heikinjunme += (t + 1)
+            agari_heikin += (t + 1)
 
         if t == 17:
             haitei = 1
@@ -517,7 +525,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
         episode_reward += reward  # 合計報酬を更新]
 
-        memory.add((deepcopy(state), reward, deepcopy(next_state), haitei))     # メモリの更新する
+        memory.add((deepcopy(state), reward, deepcopy(next_state), haitei, richi_sengen))     # メモリの更新する
 
         state = mahjong.make_state()  # 状態更新
         backsyanten = mahjong.syanten(tehai)
@@ -525,7 +533,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         if len(yama) <= 14:
             done = True
         # Qネットワークの重みを学習・更新する replay
-        if (memory.len() > batch_size * 10):
+        if (memory.len() > batch_size * 30):
             mainQN.replay(memory, batch_size, gamma, targetQN)
             if epsilon > e_min:
                 epsilon *= e_decay
@@ -534,19 +542,109 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         if done:
             break
 
-    print('mean %f' % (total_reward_vec.mean()))
+    print('sum : ' + str(total_reward_vec.sum()))
     print('流局')
-    print('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
-    print('和了率' + str((agari_count / (episode + 1)) * 100))
+    print('学習中聴牌率' + str((tenpai_count / (episode + 1)) * 100))
+    print('学習中和了率' + str((agari_count / (episode + 1)) * 100))
     print('e=' + str(epsilon))
 
-print(str(tenpai_count)+'回テンパった')
-if tenpai_count != 0:
-    print('平均聴牌順目は' + str(heikinjunme / tenpai_count))
-    print('平均和了順目は' + str(heikinjunme / agari_count))
+resultfile.write('ここから本番')
 
-resultfile.write('聴牌回数' + str(tenpai_count))
-resultfile.write('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
-resultfile.write('和了回数' + str(agari_count))
-resultfile.write('和了率' + str((agari_count / (episode + 1)) * 100))
+for episode in range(test_episodes):  # 試行数分繰り返す
+    yama = deque()
+    yama.clear()
+    tehai = []
+    tehailist = []
+    kawa = []
+    print('\n東' + str(episode+1) + '局')
+    resultfile.write('東' + str(episode+1) + '局\n')
+    i = 0
+    reward = 0
+    haitei = 0
+    richi = 0
+
+    done = False
+    yama = mahjong.yamatumi()
+    tehai, yama = mahjong.haipai(yama)
+    resultfile.write('配牌' + str(mahjong.henkan(tehai)) + '\n')
+    tehai, yama = mahjong.tumo(tehai, yama)
+    backsyanten = mahjong.syanten(tehai)
+    state = mahjong.make_state()
+    episode_reward = 0
+
+    for t in range(18):  # 1試行のループ
+        max = -100
+        action = -100
+        i = 0
+        j = 0
+        count = 0
+
+        resultfile.write('手牌' + str(mahjong.henkan(tehai)) + '\n')
+
+        if richi == 1:
+            tehai, kawa = mahjong.richi(tehai, kawa)
+
+        else:
+            while i < len(tehai):
+                pick_hai = tehai[i]
+
+                paisID[pick_hai][1] = 0
+                paisID[pick_hai][2] = 1
+
+                action = actor.get_action(mahjong.make_state(), mainQN)   # 時刻tでの行動を決定する
+
+                if max < action:
+                    max = action
+                    j = i
+                paisID[pick_hai][1] = 1
+                paisID[pick_hai][2] = 0
+                i += 1
+
+            tehai, kawa = mahjong.dahai(tehai, j, kawa)
+
+        syanten = mahjong.syanten(tehai)
+        if syanten == 0 and richi == 0:
+            resultfile.write('立直\n')
+            print('立直')
+            test_tenpai_count += 1
+            test_tenpai_heikin += (t + 1)
+            richi = 1
+
+        tehai, yama = mahjong.tumo(tehai, yama)
+        next_state = mahjong.make_state()
+
+        resultfile.write(str(syanten) + 'シャンテン' + '\n')
+
+        if mahjong.syanten(tehai) == -1:
+            done = True
+            resultfile.write('和了った！！！\n')
+            resultfile.write(str(mahjong.henkan(tehai)))
+            print('和了った！！！！')
+            print(mahjong.henkan(tehai))
+            print(str(t + 1) + '順目')
+            test_agari_count += 1
+            test_agari_heikin += (t + 1)
+
+        if t == 17:
+            haitei = 1
+
+        if len(yama) <= 14:
+            done = True
+        if done:
+            break
+
+    print('流局')
+    print('聴牌率' + str((test_tenpai_count / (episode + 1)) * 100))
+    print('和了率' + str((test_agari_count / (episode + 1)) * 100))
+
+print(str(test_tenpai_heikin)+'回テンパった')
+print(str(test_agari_heikin)+'回和了った')
+if test_tenpai_count != 0 and test_agari_count != 0:
+    print('平均聴牌順目は' + str(test_tenpai_heikin / test_tenpai_count))
+    print('平均和了順目は' + str(test_agari_heikin / test_agari_count))
+
+resultfile.write('聴牌回数' + str(test_tenpai_count))
+resultfile.write('聴牌率' + str((test_tenpai_count / (episode + 1)) * 100))
+resultfile.write('和了回数' + str(test_agari_count))
+resultfile.write('和了率' + str((test_agari_count / (episode + 1)) * 100))
 resultfile.close()

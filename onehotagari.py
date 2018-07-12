@@ -1,5 +1,6 @@
 import random
 import re
+import pandas as pd
 from mahjong.shanten import Shanten
 from mahjong.tile import TilesConverter
 import numpy as np
@@ -394,8 +395,8 @@ class Actor:
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
 
-num_episodes = 1000 # 学習回数
-test_episodes = 10000 #テスト回数
+num_episodes = 10 # 学習回数
+test_episodes = 10 #テスト回数
 total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 
@@ -413,6 +414,8 @@ memory = Memory(max_size=memory_size)
 actor = Actor()
 mahjong = Mahjong()
 mahjong.pais()
+Q_tilist = pd.DataFrame(columns=['kyoku', 'junme', 'Pai', 'Q_value'])
+add_Q_tilist = pd.DataFrame(columns=['kyoku', 'junme', 'Pai', 'Q_value'])
 
 tenpai_count = 0
 agari_count = 0
@@ -423,10 +426,12 @@ test_tenpai_heikin = 0
 agari_heikin= 0
 test_agari_heikin = 0
 epsilon = 1.0
-e_decay = 0.999
+e_decay = 0.9997
 e_min = 0.01
 
-resultfile = open('result/result' + datetime.now().strftime("%m%d %H%M") + '.txt', 'w')
+filepath = str('result/result' + datetime.now().strftime("%m%d %H%M"))
+
+resultfile = open(filepath + '.txt', 'w')
 
 # [5.3]メインルーチン--------------------------------------------------------
 for episode in range(num_episodes):  # 試行数分繰り返す
@@ -450,6 +455,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     tehai, yama = mahjong.tumo(tehai, yama)
     backsyanten = mahjong.syanten(tehai)
     state = mahjong.make_state()
+
     episode_reward = 0
 
     targetQN = mainQN   # 行動決定と価値計算のQネットワークをおなじにする
@@ -476,6 +482,12 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             paisID[pick_hai][1] = 1
             paisID[pick_hai][2] = 0
             i += 1
+
+            add_Q_tilist['kyoku'] = episode + 1
+            add_Q_tilist['junme'] = t + 1
+            add_Q_tilist['Pai'] = mahjong.henkan(pick_hai)
+            add_Q_tilist['Q_value'] = action
+            Q_tilist = Q_tilist.append(add_Q_tilist)
 
         if richi == 1:
             richi_sengen = 1
@@ -647,4 +659,5 @@ resultfile.write('聴牌回数' + str(test_tenpai_count))
 resultfile.write('聴牌率' + str((test_tenpai_count / (episode + 1)) * 100))
 resultfile.write('和了回数' + str(test_agari_count))
 resultfile.write('和了率' + str((test_agari_count / (episode + 1)) * 100))
+Q_tilist.to_csv(filepath + '.csv')
 resultfile.close()

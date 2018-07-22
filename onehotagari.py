@@ -395,8 +395,8 @@ class Actor:
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
 
-num_episodes = 10 # 学習回数
-test_episodes = 10 #テスト回数
+num_episodes = 2500 # 学習回数
+test_episodes = 10000 #テスト回数
 total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 
@@ -489,14 +489,17 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             add_Q_tilist['Q_value'] = action
             Q_tilist = Q_tilist.append(add_Q_tilist)
 
+        '''
         if richi == 1:
-            richi_sengen = 1
+            richi_sengen = 0
             tehai, kawa = mahjong.richi(tehai, kawa)
         else:
-            if epsilon <= np.random.uniform(0, 1):
-                tehai, kawa = mahjong.dahai(tehai, j, kawa)
-            else:
-                tehai, kawa = mahjong.randomdahai(tehai, kawa)
+        '''
+
+        if epsilon <= np.random.uniform(0, 1):
+            tehai, kawa = mahjong.dahai(tehai, j, kawa)
+        else:
+            tehai, kawa = mahjong.randomdahai(tehai, kawa)
 
         syanten = mahjong.syanten(tehai)
 
@@ -513,7 +516,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             tenpai_count += 1
             tenpai_heikin += (t + 1)
             richi = 1
-            reward = 50
+            reward = 100
 
         tehai, yama = mahjong.tumo(tehai, yama)
         next_state = mahjong.make_state()
@@ -649,8 +652,8 @@ for episode in range(test_episodes):  # 試行数分繰り返す
     print('聴牌率' + str((test_tenpai_count / (episode + 1)) * 100))
     print('和了率' + str((test_agari_count / (episode + 1)) * 100))
 
-print(str(test_tenpai_heikin)+'回テンパった')
-print(str(test_agari_heikin)+'回和了った')
+print(str(test_tenpai_count)+'回テンパった')
+print(str(test_agari_count)+'回和了った')
 if test_tenpai_count != 0 and test_agari_count != 0:
     print('平均聴牌順目は' + str(test_tenpai_heikin / test_tenpai_count))
     print('平均和了順目は' + str(test_agari_heikin / test_agari_count))

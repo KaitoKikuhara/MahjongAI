@@ -313,14 +313,13 @@ class QNetwork:
     def __init__(self,hidden_size, learning_rate, state_size=408, action_size=1):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
+        self.model.add(Dense(512, activation='relu'))
         self.model.add(Dense(256, activation='relu'))
         self.model.add(Dense(128, activation='relu'))
-        self.model.add(Dense(64, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
-        self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         # self.model.compile(loss='mse', optimizer=self.optimizer)
         self.model = multi_gpu_model(self.model, gpus=2)
-        self.model.compile(loss=losses.mean_absolute_error, optimizer=self.optimizer)
+        self.model.compile(loss=losses.mean_absolute_error, optimizer='RMSprop')
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, targetQN):
@@ -395,8 +394,8 @@ class Actor:
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
 
-num_episodes = 2500 # 学習回数
-test_episodes = 10000 #テスト回数
+num_episodes = 5000 # 学習回数
+test_episodes = 100000 #テスト回数
 total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 
@@ -426,7 +425,7 @@ test_tenpai_heikin = 0
 agari_heikin= 0
 test_agari_heikin = 0
 epsilon = 1.0
-e_decay = 0.9999
+e_decay = 0.0005
 e_min = 0.01
 
 filepath = str('result/result' + datetime.now().strftime("%m%d %H%M"))
@@ -443,7 +442,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     print('\n東' + str(episode+1) + '局')
     resultfile.write('東' + str(episode+1) + '局\n')
     i = 0
-    reward = 0
+    reward = 0.0
     haitei = 0
     richi = 0
     richi_sengen = 0
@@ -452,8 +451,8 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     yama = mahjong.yamatumi()
     tehai, yama = mahjong.haipai(yama)
     resultfile.write('配牌' + str(mahjong.henkan(tehai)) + '\n')
-    tehai, yama = mahjong.tumo(tehai, yama)
     backsyanten = mahjong.syanten(tehai)
+    tehai, yama = mahjong.tumo(tehai, yama)
     state = mahjong.make_state()
 
     episode_reward = 0
@@ -506,7 +505,9 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         resultfile.write(str(syanten) + 'シャンテン' + '\n')
 
         if syanten < backsyanten:
-            reward = 1
+            reward = 0.7
+        elif syanten < backsyanten:
+            reward = -0.7
         else:
             reward = 0
 
@@ -519,7 +520,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             print(str(t + 1) + '順目')
             tenpai_count += 1
             tenpai_heikin += (t + 1)
-            reward = 100
+            reward = 1
 
         tehai, yama = mahjong.tumo(tehai, yama)
         next_state = mahjong.make_state()
@@ -553,10 +554,10 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         if len(yama) <= 14:
             done = True
         # Qネットワークの重みを学習・更新する replay
-        if (memory.len() > batch_size * 30):
+        if (memory.len() > batch_size * 100):
             mainQN.replay(memory, batch_size, gamma, targetQN)
-            if epsilon > e_min:
-                epsilon *= e_decay
+            if epsilon > e_min and tenpai_count > 500:
+                epsilon -= e_decay
 
         total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
         if done:
@@ -568,6 +569,8 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     print('学習中和了率' + str((agari_count / (episode + 1)) * 100))
     print('e=' + str(epsilon))
 
+resultfile.write('聴牌回数' + str(tenpai_count))
+resultfile.write('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
 resultfile.write('ここから本番')
 
 for episode in range(test_episodes):  # 試行数分繰り返す
@@ -638,7 +641,6 @@ for episode in range(test_episodes):  # 試行数分繰り返す
         tehai, yama = mahjong.tumo(tehai, yama)
         next_state = mahjong.make_state()
 
-        """
         if mahjong.syanten(tehai) == -1:
             done = True
             resultfile.write('和了った！！！\n')
@@ -648,7 +650,6 @@ for episode in range(test_episodes):  # 試行数分繰り返す
             print(str(t + 1) + '順目')
             test_agari_count += 1
             test_agari_heikin += (t + 1)
-        """
 
         if t == 17:
             haitei = 1

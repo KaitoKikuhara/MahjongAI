@@ -534,8 +534,8 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         # Qネットワークの重みを学習・更新する replay
         if (memory.len() > batch_size * 50):
             mainQN.replay(memory, batch_size, gamma, targetQN)
-            if epsilon > e_min
-            epsilon -= e_decay
+            if epsilon > e_min:
+                epsilon -= e_decay
 
         total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
         if done:

@@ -310,7 +310,7 @@ class Mahjong():
         return tehai
 
 class QNetwork:
-    def __init__(self,hidden_size, learning_rate, state_size=408, action_size=5):
+    def __init__(self,hidden_size, learning_rate, state_size=408, action_size=Nmai_mahjong):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(512, activation='relu'))
@@ -324,7 +324,7 @@ class QNetwork:
     # 重みの学習
     def replay(self, memory, batch_size, gamma, targetQN):
         inputs = np.zeros((batch_size, 408))
-        targets = np.zeros((batch_size, 5))
+        targets = np.zeros((batch_size, Nmai_mahjong))
         mini_batch = deepcopy(memory.sample(batch_size))
 
         for i, (state_b, action_b,reward_b, next_state_b, haitei, richi_sengen) in enumerate(mini_batch):
@@ -534,7 +534,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         # Qネットワークの重みを学習・更新する replay
         if (memory.len() > batch_size * 50):
             mainQN.replay(memory, batch_size, gamma, targetQN)
-            #if epsilon > e_min and tenpai_count > 500:
+            if epsilon > e_min
             epsilon -= e_decay
 
         total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録

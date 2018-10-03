@@ -17,7 +17,7 @@ from copy import deepcopy
 from datetime import datetime
 from time import time
 
-Nmai_mahjong = 5
+Nmai_mahjong = 8
 
 shanten = Shanten()
 pailist =[]
@@ -58,6 +58,7 @@ class Mahjong():
     def tumo(self, tehai, yama):
         global paisID
         a = yama.popleft()
+        print('ツモ：' + str(mahjong.henkan(a)))
         resultfile.write('ツモ：' + str(mahjong.henkan(a)) + '\n')
         tehai.append(a)
         paisID[a][0] = 0
@@ -69,6 +70,7 @@ class Mahjong():
     def dahai(self, tehai, action, kawa):
         global paisID
         a = tehai.pop(action)
+        print('打：' + str(mahjong.henkan(a)))
         resultfile.write('打：' + str(mahjong.henkan(a)) + '\n')
         kawa.append(a)
         paisID[a][0] = 0
@@ -81,6 +83,7 @@ class Mahjong():
     def richi(self, tehai, kawa):
         global paisID
         a = tehai.pop(Nmai_mahjong - 1)
+        print('ツモ切り：' + str(mahjong.henkan(a)))
         resultfile.write('ツモ切り：' + str(mahjong.henkan(a)) + '\n')
         kawa.append(a)
         paisID[a][0] = 0
@@ -384,7 +387,7 @@ class Actor:
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
 
-num_episodes = 10000 # 学習回数
+num_episodes = 50000 # 学習回数
 test_episodes = 100000 #テスト回数
 total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
@@ -415,7 +418,7 @@ test_tenpai_heikin = 0
 agari_heikin= 0
 test_agari_heikin = 0
 epsilon = 1.0
-e_decay = 0.0005
+e_decay = 0.0002
 e_min = 0.01
 
 filepath = str('result/result' + datetime.now().strftime("%m%d %H%M"))
@@ -455,6 +458,8 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         j = 0
         count = 0
 
+        print(str(t+1) + '順目')
+        print('手牌' + str(mahjong.henkan(tehai)))
         resultfile.write('手牌' + str(mahjong.henkan(tehai)) + '\n')
         resultfile.write(str(backsyanten) + 'シャンテン' + '\n')
 
@@ -483,9 +488,9 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         resultfile.write(str(syanten) + 'シャンテン' + '\n\n')
 
         if syanten < backsyanten:
-            reward = 0.5
+            reward = 0.1
         elif syanten > backsyanten:
-            reward = -0.5
+            reward = -0.2
         else:
             reward = 0
 
@@ -591,7 +596,6 @@ for episode in range(test_episodes):  # 試行数分繰り返す
         add_Q_tilist['Q_value'] = Qti
         Q_tilist = Q_tilist.append(add_Q_tilist)
 
-
         if richi == 1:
             richi_sengen = 0
             tehai, kawa = mahjong.richi(tehai, kawa)
@@ -615,7 +619,6 @@ for episode in range(test_episodes):  # 試行数分繰り返す
 
         tehai, yama = mahjong.tumo(tehai, yama)
         next_state = mahjong.make_state()
-
 
         if mahjong.syanten(tehai) == -1:
             done = True

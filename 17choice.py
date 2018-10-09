@@ -387,8 +387,8 @@ class Actor:
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 
 
-num_episodes = 50000 # 学習回数
-test_episodes = 100000 #テスト回数
+num_episodes = 2000 # 学習回数
+test_episodes = 10000 #テスト回数
 total_reward_vec = np.zeros(num_episodes * 17)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 
@@ -396,7 +396,7 @@ gamma = 0.99    # 割引係数
 hidden_size = 512              # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.00001         # Q-networkの学習係数
 memory_size = 100000000            # バッファーメモリの大きさ
-batch_size = 128              # Q-networkを更新するバッチの大記載
+batch_size = 1000              # Q-networkを更新するバッチの大記載
 
 # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
 mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
@@ -613,8 +613,8 @@ for episode in range(test_episodes):  # 試行数分繰り返す
             print('聴牌')
             print(mahjong.henkan(tehai))
             print(str(t + 1) + '順目')
-            tenpai_count += 1
-            tenpai_heikin += (t + 1)
+            test_tenpai_count += 1
+            test_tenpai_heikin += (t + 1)
             reward = 1
 
         tehai, yama = mahjong.tumo(tehai, yama)
@@ -629,8 +629,8 @@ for episode in range(test_episodes):  # 試行数分繰り返す
             print('和了った！！！！')
             print(mahjong.henkan(tehai))
             print(str(t + 1) + '順目')
-            agari_count += 1
-            agari_heikin += (t + 1)
+            test_agari_count += 1
+            test_agari_heikin += (t + 1)
 
 
         if t == 17:

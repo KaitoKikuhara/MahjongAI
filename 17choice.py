@@ -545,8 +545,8 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             break
 
     y.append((tenpai_count / (episode + 1)) * 100)
-    plt.title('聴牌率')
-    plt.ylabel('聴牌率')
+    plt.title('tenpairitu')
+    plt.ylabel('tenpairitu')
     plt.xlabel('episodes')
     plt.ylim(0, 100)
     plt.xlim(0, num_episodes)

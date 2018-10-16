@@ -15,6 +15,8 @@ from collections import deque
 import tensorflow as tf
 from copy import deepcopy
 from datetime import datetime
+from matplotlib import pyplot as plt
+from matplotlib import animation
 from time import time
 
 Nmai_mahjong = 8
@@ -64,6 +66,7 @@ class Mahjong():
         paisID[a][0] = 0
         paisID[a][1] = 1
         paisID[a][2] = 0
+        tehai.sort()
 
         return tehai, yama
 
@@ -71,7 +74,7 @@ class Mahjong():
         global paisID
         a = tehai.pop(action)
         print('打：' + str(mahjong.henkan(a)))
-        resultfile.write('打：' + str(mahjong.henkan(a)) + '\n')
+        resultfile.write('打：' + str(mahjong.henkan(a)) + '\n\n')
         kawa.append(a)
         paisID[a][0] = 0
         paisID[a][1] = 0
@@ -84,7 +87,7 @@ class Mahjong():
         global paisID
         a = tehai.pop(Nmai_mahjong - 1)
         print('ツモ切り：' + str(mahjong.henkan(a)))
-        resultfile.write('ツモ切り：' + str(mahjong.henkan(a)) + '\n')
+        resultfile.write('ツモ切り：' + str(mahjong.henkan(a)) + '\n\n')
         kawa.append(a)
         paisID[a][0] = 0
         paisID[a][1] = 0
@@ -96,7 +99,8 @@ class Mahjong():
     def randomdahai(self, tehai, kawa):
         global paisID
         a = tehai.pop(random.randint(0, Nmai_mahjong - 1))
-        resultfile.write('ランダム打：' + str(mahjong.henkan(a)) + '\n')
+        print('ランダム打：' + str(mahjong.henkan(a)))
+        resultfile.write('ランダム打：' + str(mahjong.henkan(a)) + '\n\n')
         kawa.append(a)
         paisID[a][0] = 0
         paisID[a][1] = 0
@@ -315,10 +319,9 @@ class Mahjong():
 class QNetwork:
     def __init__(self,hidden_size, learning_rate, state_size=408, action_size=Nmai_mahjong):
         self.model = Sequential()
-        self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        self.model.add(Dense(512, activation='relu'))
-        self.model.add(Dense(256, activation='relu'))
-        self.model.add(Dense(128, activation='relu'))
+        self.model.add(Dense(1000, activation='relu', input_dim=state_size))
+        self.model.add(Dense(500, activation='relu'))
+        self.model.add(Dense(250, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
         # self.model.compile(loss='mse', optimizer=self.optimizer)
         self.model = multi_gpu_model(self.model, gpus=2)
@@ -381,7 +384,6 @@ class Actor:
 
         return action, retTargetQs
 
-
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
@@ -418,8 +420,9 @@ test_tenpai_heikin = 0
 agari_heikin= 0
 test_agari_heikin = 0
 epsilon = 1.0
-e_decay = 0.0002
+e_decay = 0.001
 e_min = 0.01
+y = []
 
 filepath = str('result/result' + datetime.now().strftime("%m%d %H%M"))
 
@@ -488,9 +491,9 @@ for episode in range(num_episodes):  # 試行数分繰り返す
         resultfile.write(str(syanten) + 'シャンテン' + '\n\n')
 
         if syanten < backsyanten:
-            reward = 0.1
+            reward = 1
         elif syanten > backsyanten:
-            reward = -0.2
+            reward = -1
         else:
             reward = 0
 
@@ -536,24 +539,36 @@ for episode in range(num_episodes):  # 試行数分繰り返す
 
         if len(yama) <= 14:
             done = True
-        # Qネットワークの重みを学習・更新する replay
-        if (memory.len() > batch_size * 50):
-            mainQN.replay(memory, batch_size, gamma, targetQN)
-            if epsilon > e_min:
-                epsilon -= e_decay
 
         total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
         if done:
             break
+
+    y.append((tenpai_count / (episode + 1)) * 100)
+    plt.title('聴牌率')
+    plt.ylabel('聴牌率')
+    plt.xlabel('episodes')
+    plt.ylim(0, 100)
+    plt.xlim(0, num_episodes)
+    plt.plot(y)  # デフォルト(指定無し)だと水色
+    plt.pause(1)
+
+    # Qネットワークの重みを学習・更新する replay
+    if (memory.len() > batch_size * 2):
+        mainQN.replay(memory, batch_size, gamma, targetQN)
+        if epsilon > e_min:
+            epsilon -= e_decay
 
     print('sum : ' + str(total_reward_vec.sum()))
     print('流局')
     print('学習中聴牌率' + str((tenpai_count / (episode + 1)) * 100))
     print('学習中和了率' + str((agari_count / (episode + 1)) * 100))
     print('e=' + str(epsilon))
+    plt.cla()  # 現在描写されているグラフを消去
 
 resultfile.write('聴牌回数' + str(tenpai_count))
 resultfile.write('聴牌率' + str((tenpai_count / (episode + 1)) * 100))
+Q_tilist.to_csv(filepath + '.csv')
 resultfile.write('ここから本番')
 
 for episode in range(test_episodes):  # 試行数分繰り返す
@@ -585,6 +600,8 @@ for episode in range(test_episodes):  # 試行数分繰り返す
         j = 0
         count = 0
 
+        print(str(t + 1) + '順目')
+        print('手牌' + str(mahjong.henkan(tehai)))
         resultfile.write('手牌' + str(mahjong.henkan(tehai)) + '\n')
         resultfile.write(str(backsyanten) + 'シャンテン' + '\n')
 
